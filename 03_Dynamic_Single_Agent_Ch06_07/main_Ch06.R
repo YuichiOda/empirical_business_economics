@@ -2,16 +2,23 @@
 # 環境のクリア
 rm(list = ls())
 
+# インストール
+install.packages("skimr")
+install.packages("evd")
+install.packages("here")
+install.packages("showtext")
+install.packages("plot3D")
+
 # パッケージを読み込む
-library(tidyverse)
-library(dplyr)
-library(knitr)
-library(skimr)
-library(numDeriv)
-library(evd)
-library(here)
+library(tidyverse) # 標準ツール
+library(dplyr) # データの加工ルーツ。tidyverseに含まれている。
+library(knitr) # 表の整形
+library(skimr) # データの要約統計
+library(numDeriv)　# 数値微分
+library(evd) # Gumbel分布から乱数を生成するため
+library(here) # ファイルパスを簡単にするため
 library(ggplot2)
-library(showtext)
+library(showtext) # 日本語フォントを使うため
 
 # 画像の日本語表示のため
 showtext_auto()
@@ -23,17 +30,16 @@ library(plot3D)
 # 自作関数の読み込み
 source(here("03_Dynamic_Single_Agent_Ch06_07/function.R"))
 
-
 # パラメータの設定 ----
 
 # 走行距離にかかるtheta_cと車の価格にかかるtheta_p
-theta_true <- c(theta_c = 15, theta_p = 6)
+theta_true <- c(theta_c = 15, theta_p = 6) # c()：ベクトルを作る関数
 
 # 時間割引率
 beta <- 0.95
 
 # オイラー定数
-Euler_const <- digamma(1)
+Euler_const <- digamma(1) # digamma()：ガンマ関数の対数微分の値を返す関数。ここでは、オイラー定数を求めるために、digamma(1)とする。
 
 # 消費者は車を購入するかどうか決めるため選択肢の数は2つ
 num_choice <- 2
@@ -42,7 +48,8 @@ num_choice <- 2
 # Stateの作成 ----
 
 # 価格の状態変数
-price_states <- seq(2, 2.5, by = 0.1)
+price_states <- seq(2, 2.5, by = 0.1)　# seq(1, 10)：シンプルな数列, seq(from, to, by = ): fromからtoまでby刻みの数列を作る関数。ここでは、200万円から250万円まで10万円刻みの数列を作るために、seq(2, 2.5, by = 0.1)とする。
+                                       # seq(from, to, length.out = n)：fromからtoまでn個の数列を作る関数。ここでは、200万円から250万円まで6個の数列を作るために、seq(2, 2.5, length.out = 6)とすることもできる。
 
 # 走行距離の状態変数
 mileage_states <- seq(0, 0.1, by = 0.005)
@@ -64,9 +71,9 @@ state_df <-
     state_id = 1:num_states,
     # 順番は (p,m) = (2000,0), (2100,0), ...,(2500,0), (2000,5), (2100,5), ...
     price_id = rep(1:num_price_states,
-                   times = num_mileage_states),
+                   times = num_mileage_states), # rep(x, times = n)：1-6のvectorXをn回繰り返す関数。ここでは、価格の状態変数の数だけ、走行距離の状態変数の数だけ繰り返すために、rep(1:num_price_states, times = num_mileage_states)とする。
     mileage_id = rep(1:num_mileage_states,
-                     each = num_price_states),
+                     each = num_price_states), # rep(x, each = n)：xをn回ずつ繰り返す関数。まず1をn回繰り返し、2をn回繰り返し・・・
     price = rep(price_states,
                 times = num_mileage_states),
     mileage = rep(mileage_states,
@@ -77,9 +84,9 @@ state_df <-
 state_df %>% tail(3)
 
 # 走行距離の遷移行列のパラメタを設定し、遷移行列を作成する
-kappa_true <- c(0.4, 0.1)
+kappa_true <- c(0.4, 0.1)　# 1段階に
 
-mileage_trans_mat_true <- gen_mileage_trans(kappa_true)
+mileage_trans_mat_true <- gen_mileage_trans(kappa_true) # 3次元行列（テンソル）,P(s'｜s,a) a=1,2で3次元
 
 # 走行距離の遷移行列の4行4列までを表示
 mileage_trans_mat_true[1:4, 1:4, 1]
@@ -98,31 +105,33 @@ price_trans_mat_true <- gen_price_trans(lambda_true)
 price_trans_mat_true
 
 # コントロール変数毎の遷移行列を作成
-trans_mat_true <- list()
+trans_mat_true <- list() 
 
-# 車を購入しない場合の遷移行列
+# 車を購入しない場合の遷移行列　走行距離の遷移行列（21×21）⊗価格の遷移行列（6×6）Kronecker product
+# p(m',p'｜m,p) = p(m'｜m) * p(p'｜p)
 trans_mat_true$not_buy <- mileage_trans_mat_true[,,1] %x% price_trans_mat_true
 
 # 車を購入する場合の遷移行列
 trans_mat_true$buy <- mileage_trans_mat_true[,,2] %x% price_trans_mat_true
 
-
-# 定常状態での価格の分布を計算
+# 定常状態での価格の分布を計算 (stationary distribution)
 # 以下を満たすような price_dist_steady を求める
 # price_dist_steady %*% price_trans_mat == price_dist_steady
+# 6×6 * 6×6 (単位行列) -> 6×6
 
-# 固有値/固有ベクトルを求める
+# 固有値/固有ベクトルを求める. [a, b] = [a, b] [0.1, 0.2; 0.3, 0.4]. 
+# 両辺を転置すると、v = Ptv →t(P)v = λv, λ=1の問題を解いているのと同じ。
 # 固有値が1となる固有ベクトルは1つだけ（1つめ）
-price_trans_eigen <- eigen(t(price_trans_mat_true))
+price_trans_eigen <- eigen(t(price_trans_mat_true)) # res <- eigen(A), res$values # 固有値, res$vectors #固有ベクトル
 
 # 価格の定常分布を求める
-price_dist_steady <- price_trans_eigen$vectors[, 1] / sum(price_trans_eigen$vectors[, 1])
+price_dist_steady <- price_trans_eigen$vectors[, 1] / sum(price_trans_eigen$vectors[, 1]) # 正規化
 
 price_dist_steady
 
 
 # Vを求める
-start_time <- proc.time()
+start_time <- proc.time()　# proc.time()：現在のCPU時間を返す関数。Vを求める前のCPU時間を記録。
 
 V_true <- contraction(theta_true, beta, trans_mat_true, state_df)
 

@@ -6,7 +6,9 @@ gen_mileage_trans <- function(kappa) {
   kappa_2 <- kappa[2]
   # 購買しなかった場合の遷移行列を作成
   mileage_trans_mat_hat_not_buy <-
-    matrix(0, ncol = num_mileage_states, nrow = num_mileage_states)
+    
+    matrix(0, ncol = num_mileage_states, nrow = num_mileage_states) #matrix(n, nrow, ncol)で行列を作成
+  
   for (i in 1:num_mileage_states) {
     for (j in 1:num_mileage_states) {
       if (i == j){
@@ -18,31 +20,37 @@ gen_mileage_trans <- function(kappa) {
       }
     }
   }
+  
   mileage_trans_mat_hat_not_buy[num_mileage_states - 1, num_mileage_states] <- 
-    kappa_1 + kappa_2
+    kappa_1 + kappa_2 # 20段目になったときに、1段目でも2段目でも21段目までしか進めない。
+  
   mileage_trans_mat_hat_not_buy[num_mileage_states, num_mileage_states] <- 1
+  
   # 購買した場合の遷移行列を作成
   # 購入した期では m=0 となるため次の期のmileageはそこから決まることに注意
-  mileage_trans_mat_hat_buy <-
-    matrix(1, nrow = num_mileage_states, ncol = 1) %*%
-    mileage_trans_mat_hat_not_buy[1,]
-  # 3次元のarrayとして出力
-  return(array(c(mileage_trans_mat_hat_not_buy, 
+  mileage_trans_mat_hat_buy <- # 掛け算により、初期値のmatrix
+    matrix(1, nrow = num_mileage_states, ncol = 1) %*% # 縦1行のベクトル
+    mileage_trans_mat_hat_not_buy[1,] # 横1行のベクトル（初期値）
+  
+  
+  # 3次元のarrayとして出力 
+  return(array(c(mileage_trans_mat_hat_not_buy, #c()で行列を結合すると、1つのデータのベクトルとなる。
                  mileage_trans_mat_hat_buy),
                dim = c(num_mileage_states, num_mileage_states, num_choice)))
-}
+} # それをdimに従って再構成
 
-
-# パラメタを所与として価格の遷移行列を出力する関数を作成 
+# パラメタを所与として価格の遷移行列を出力する関数を作成 # 6×6の遷移行政を作る。
 gen_price_trans <- function(lambda){
   
-  lambda_11 <- 1 - lambda[1] - lambda[2] - lambda[3] - lambda[4] - lambda[5]
+  # stayの確率を、遷移確率の合計が1になるように、lambdaから計算する
+  lambda_11 <- 1 - lambda[1] - lambda[2] - lambda[3] - lambda[4] - lambda[5] 
   lambda_22 <- 1 - lambda[6] - lambda[7] - lambda[8] - lambda[9] - lambda[10]
   lambda_33 <- 1 - lambda[11] - lambda[12] - lambda[13] - lambda[14] - lambda[15]
   lambda_44 <- 1 - lambda[16] - lambda[17] - lambda[18] - lambda[19] - lambda[20]
   lambda_55 <- 1 - lambda[21] - lambda[22] - lambda[23] - lambda[24] - lambda[25]
   lambda_66 <- 1 - lambda[26] - lambda[27] - lambda[28] - lambda[29] - lambda[30]
   
+  # c():vector として結合してから、matrix()で行列にする。byrow=Tで行優先で結合する。
   price_trans_mat_hat <- 
     c(lambda_11, lambda[1], lambda[2], lambda[3], lambda[4], lambda[5],
       lambda[6], lambda_22, lambda[7], lambda[8], lambda[9], lambda[10],
@@ -62,6 +70,7 @@ flow_utility <- function(theta,
   theta_c <- theta[1]
   theta_p <- theta[2]
   
+  # 126×2の行列になる。行：状態、列：not_buyとbuyの選択肢ごとの効用
   U <- cbind(
       # その期における車を購入しない場合の効用
       U_not_buy = - theta_c * state_df$mileage, 
