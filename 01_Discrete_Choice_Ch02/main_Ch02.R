@@ -1,3 +1,8 @@
+#install.packages('tidyverse')
+#install.packages('mlogit')
+#install.packages('stargazer')
+#install.packages('optimx')
+#install.packages('here')
 
 library("tidyverse")
 library("knitr")
@@ -15,10 +20,10 @@ KT_2024 <- read_csv(here("01_Discrete_Choice_Ch02/data/KinokoTakenokoSurvey_raw.
 new_col_name <- c("ID","experience", "Q1", "Q2", "Q3", "Q4", "Q5", "age", "gender", "region", "familyhouse")
 
 KT_2024 <- KT_2024 %>%
-  mutate(ID = row_number()) %>% 
-  select(ID, c(8:17)) %>% # 必要な変数のみ選択
+  mutate(ID = row_number()) %>% # mutate(新しい列 = 計算式)
+  select(ID, c(8:17)) %>% # 必要な変数のみ選択 select(1, 8:17)でもよい。
   set_colnames(new_col_name) %>% 
-  filter(experience != "4 : 食べたことがない" & gender != "3 : 回答したくない") %>% # 扱いにくいデータを除外
+  filter(experience != "4 : 食べたことがない" & gender != "3 : 回答したくない") %>% # 扱いにくいデータを除外 !=(でない)
   drop_na() # NA(未回答？)の行を除外
 
 # 記述統計 ----
@@ -28,11 +33,11 @@ N <- length(KT_2024$ID)
 # 回答数の比率を表にするためのデータ整形
 datafig <- KT_2024 %>%
   select(ID, Q1, Q2, Q3, Q4, Q5)  %>% # IDと回答のみ抽出
-  gather(key = Q, value  = choice, Q1, Q2, Q3, Q4, Q5)
+  gather(key = Q, value  = choice, Q1, Q2, Q3, Q4, Q5) # gather():横に並んだ列を縦にまとめる。key = QはQ1-Q5を保存する新たな列名、value = choiceはQ1-Q5の回答を保存するカラム名 
 
 # 対応する選択肢に置き換える
 datafig <- datafig %>% 
-  mutate(Q = ifelse(Q == "Q1", "Q1: (200円, 200円)" ,Q),  
+  mutate(Q = ifelse(Q == "Q1", "Q1: (200円, 200円)" ,Q),  #ifelse(条件、TRUEのとき、FLASEのとき)
          Q = ifelse(Q == "Q2", "Q2: (180円, 200円)" ,Q),  
          Q = ifelse(Q == "Q3", "Q3: (200円, 170円)" ,Q),  
          Q = ifelse(Q == "Q4", "Q4: (220円, 200円)" ,Q),  
@@ -40,15 +45,16 @@ datafig <- datafig %>%
 
 # 回答数の比率の表を作成
 tab_choice <- datafig %>% 
-  group_by(Q, choice) %>% 
-  tally() %>% 
-  mutate(n = n/N) %>% 
-  pivot_wider( id_cols = "Q", names_from = "choice", values_from = "n")
+  group_by(Q, choice) %>% # Qを第一キー、choiceを第二キーとし、グループ化
+  tally() %>% #各グループの数を数える
+  mutate(n = n/N) %>% # tally()の結果できたn人のカラムをn/Nの割合に置き換える。
+  pivot_wider( id_cols = "Q", names_from = "choice", values_from = "n") #縦→横。id_cols = Qを行として残す。
 
+#データフレームをファイルに書き込む
 write.table(tab_choice,
             file = here("01_Discrete_Choice_Ch02/output/tab2_1_tab_choice.txt"),
-            quote = FALSE,  
-            col.names = NA) 
+            quote = FALSE, #文字列を""で囲まない設定  
+            col.names = NA) #左上を空欄にして列名出力
 
 # 回答者の属性の比率を表にするためのデータ整形
 data_atr <- KT_2024 %>%
@@ -74,10 +80,10 @@ region_fig <- data_atr %>%
   group_by(region) %>%
   tally() %>%
   mutate(割合 = n/N) %>% 
-  select (-n) %>%
-  mutate(変数 = c("出身地方","","")) %>%
+  select (-n) %>% #nのカラムを削除
+  mutate(変数 = c("出身地方","","")) %>%　#変数という列を追加し、一行目に出身地方、2,3行目は空欄。mutate(変数 = c("出身地方", rep("", n()-1)))は行が3行以上も可
   rename(属性 = region) %>%
-  select(変数, everything())
+  select(変数, everything()) #変数を先頭に移動。
 
 
 # 食事経験の割合の表を作成
@@ -85,8 +91,8 @@ exp_fig <- data_atr %>%
    group_by(exp) %>%
    tally() %>%
    mutate(割合 = n/N) %>% 
-   pivot_wider(names_from = "exp", values_from = "n") %>% 
-   mutate("食事経験" = " ") %>%
+   pivot_wider(names_from = "exp", values_from = "n") %>% #縦と横を入れ替える。names_fromは列名をexpのカラムから持ってくる。
+   mutate("食事経験" = " ") %>% #列を追加。値は空欄。
    select("食事経験", everything())
 
 
@@ -132,15 +138,15 @@ print(tab_atr)
 
 # 分析用のデータ整形
 data_for_estimation <- KT_2024 %>% 
-  gather(key = "occasion", value = choice, starts_with("Q"))
+  gather(key = "occasion", value = choice, starts_with("Q")) #gather(key = 新しい列の名前, value = 新しい値列の名前、)
 
 # 提示される価格の組み合わせ
 pricedata <- data.frame(
   occasion = c("Q1","Q2", "Q3", "Q4", "Q5" ),
-  price_0 = numeric(5), 
+  price_0 = numeric(5), # (0, 0, 0, 0, 0)
   price_1 = c(200, 180, 200, 220, 190), 
   price_2 = c(200, 200, 170, 200, 210)) %>% 
-  as_tibble()
+  as_tibble() # なくても同じ。
 
 data_for_estimation <- data_for_estimation %>% 
   left_join(pricedata) %>%
@@ -150,7 +156,7 @@ data_for_estimation <- data_for_estimation %>%
          Takenoko_0 = 0, 
          Takenoko_1 = 0, 
          Takenoko_2 = 1) %>%
-  arrange(ID, occasion)
+  arrange(ID, occasion) # ID->occationの順に並び変える
 
 
 data_for_estimation <- data_for_estimation %>% 
@@ -175,15 +181,15 @@ data_for_estimation <- data_for_estimation %>%
           )
   )
 
-data_for_estimation$choiceid <- 1:nrow(data_for_estimation)
+data_for_estimation$choiceid <- 1:nrow(data_for_estimation) # choiceidの列を新たに作成し、そこに1-行数分の値を入れる。
 
-# 分析用のデータフレーム作成
-datalogit <- dfidx(data = as.data.frame(data_for_estimation),
+# 分析用のデータフレーム作成, data_for_estimationのdfの1行が,datalogitでは3行に分解
+datalogit <- dfidx(data = as.data.frame(data_for_estimation), # dfidx():離散選択モデル用にデータを整理する関数
                    choice = "choice", 
-                   varying = c(9:17), 
+                   varying = c(9:17), #選択肢ごとに変化する列
                    sep = "_",
-                   idx = list(c("choiceid", "ID")), 
-                   idnames = c("chid", "alt"),
+                   idx = list(c("choiceid", "ID")), #選択ID, 個人IDを指定
+                   idnames = c("chid", "alt"), #choice situation id, alternative
                    opposite = c("price")) 
 
 
