@@ -69,20 +69,20 @@ f_likelihood_logit <- function(param,
   P5 <- f_logit_prob(alpha_Kinoko, alpha_Takenoko, beta, 190, 210)
   
   pred <- rbind(P1, P2, P3, P4, P5)
-  pred <- as_tibble(pred)
-  pred$occasion <- c("Q1", "Q2", "Q3", "Q4", "Q5")
+  pred <- as_tibble(pred) # tidyverseの関数を使うためにデータフレーム化
+  pred$occasion <- c("Q1", "Q2", "Q3", "Q4", "Q5") # 後でマージするために、設問の列を追加
   
   # 各選択フェーズに対する実際の選択と、予測された選択確率を対応させる
   result <- data %>%
     left_join(pred, by = "occasion") %>%
     mutate(choice_prob = case_when(choice == 0 ~ prob_Other,
                                     choice == 1 ~ prob_Kinoko,
-                                    choice == 2 ~ prob_Takenoko)) %>%
+                                    choice == 2 ~ prob_Takenoko)) %>% # 実際の選択に応じ予測された選択確率をchoice_prob(新設)に追加。
     mutate(log_choice_prob = log(choice_prob)) %>%
-    select(log_choice_prob)
+    select(log_choice_prob) #だけを抜き取る。
   
-  # 和を取って対数尤度を計算する
-  likelihood <- sum(result)
+  # 和を取って対数尤度を計算する: log L(θ) = Σ log P(yi|θ), ∑はN(人数)×K(設問5個)×J(Kinoko, Takenoko, outside)
+  likelihood <- sum(result)　
   
   return(likelihood)
   
@@ -101,6 +101,7 @@ f_logit_prob_with_atr <- function(alpha_Kinoko,
                                   param_atr_price,atr){
   # きのこ、たけのこから得られるそれぞれの効用の算出
   # param_atr_〇〇が各属性との交差項の係数のベクトル、atrが消費者属性のベクトル
+  # 価格感応度が属性によって異なると仮定しているため、価格の項は属性との交差項も含めている。
   util_Kinoko <- alpha_Kinoko + sum(param_atr_Kinoko*atr) - price_Kinoko*(beta + sum(param_atr_price*atr))
   util_Takenoko <- alpha_Takenoko + sum(param_atr_Takenoko*atr) - price_Takenoko*(beta + sum(param_atr_price*atr))
   

@@ -462,19 +462,19 @@ ggsave(filename = here("01_Discrete_Choice_Ch02/output/Revenue_Kinoko.pdf"), plo
 ini_ml <- c(5, 5, -0.01)
 
 # 最適化
-result <- optimx(par = ini_ml, 
+result <- optimx(par = ini_ml, # 最適化の初期値
                  fn = f_likelihood_logit, 
                  method="Nelder-Mead", 
                  data = data_for_estimation, 
-                 control = list(fnscale=-1), 
-                 hessian = TRUE)
+                 control = list(fnscale=-1), # 最大化のために-1をかける
+                 hessian = TRUE) # ヘシアンを計算するためのオプション
 
 # 推定値の取得
-est_vec <- as.numeric(result[1,1:3])
-est_vec <- est_vec[c(3, 1, 2)]
+est_vec <- as.numeric(result[1,1:3]) # result()の1行目の1-3列目を数値ベクトルとして取り出す。
+est_vec <- est_vec[c(3, 1, 2)] # 順番をprice, Kinoko, Takenokoの順に入れ替える。
 # パッケージの推定値の取
 est_vec_package <- ml$coefficients
-names(est_vec) <- c(attr(ml$coefficients, "names"))
+names(est_vec) <- c(attr(ml$coefficients, "names")) # attr(ml$coefficients, "names")でmlの係数の名前を取り出し、names(est_vec)に代入して、est_vecの要素に名前をつける。
 
 # 比較
 print(rbind(est_vec, est_vec_package))
@@ -486,11 +486,12 @@ loglik_ml_package <- as.numeric(ml$logLik)
 # 比較
 print(rbind(loglik_ml, loglik_ml_package))
 
-# ヘシアンを計算し、標準誤差を確認する
+# ヘシアンを計算し、MLE標準誤差(standard error)を確認する
+# gHgen()はoptimxのヘシアンを計算する関数。parに最適化で得られたパラメタを入れ、fnに最適化で用いた関数を入れる。dataは最適化で用いたデータを入れる。
 Hessian <- gHgen(par = as.numeric(result[1,1:3]), 
                  fn = f_likelihood_logit, 
                  data = data_for_estimation)
-se_vec <- round(sqrt(diag(solve(-Hessian$Hn))), 3)
+se_vec <- round(sqrt(diag(solve(-Hessian$Hn))), 3) # MLEのhessianは負定値なので-をつける。solve()は逆行列。
 se_vec <- se_vec[c(3, 1, 2)]
 print(rbind(est_vec, se_vec))
 
@@ -511,6 +512,7 @@ data_for_estimation_with_atr <- data_for_estimation %>%
 
 # 初期値
 ini_ml_with_atr <- c(0, 10, 10, 0, 1, 1, 0, 0, 0, 0, -1, -1, 0, 0, 1, 1, 1, 1)
+# beta, alpha_kinoko, alpha_takenoko, param_atr_kinoko(gender, familyhouse, adult, kansai, oversea), param_atr_takenoko(same), param_atr_price(same)
 
 # 最適化
 # Nelder-Mead法では初期値にかなり依存して推定されてしまうためBFGSを用いる
@@ -520,7 +522,6 @@ result_with_atr <- optimx(par = ini_ml_with_atr,
                           data = data_for_estimation_with_atr, 
                           control = list(fnscale=-1), 
                           hessian = TRUE)
-
 
 # 推定値の取得
 est_vec_ml_atr <- as.numeric(result_with_atr[1,1:18])
