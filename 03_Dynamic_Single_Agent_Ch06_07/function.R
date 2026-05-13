@@ -81,36 +81,39 @@ flow_utility <- function(theta,
 }
 
 
+
 # 価値関数反復法における縮小写像を定義する関数
 contraction <- function(theta,
                         beta, 
                         trans_mat, 
                         state_df) {
-    # 価値関数の初期値
-    num_states <- nrow(state_df)
-    V_old <- matrix(0, nrow = num_states, ncol = 1)
-    
-    # パラメタより今期の効用を計算
-    U <- flow_utility(theta, state_df)
-    
-    # 価値関数の差の初期値
-    diff <- 1000
-    
-    # 縮小写像の誤差範囲
-    tol_level <- 1.0e-12
-    
-    while (diff > tol_level) {
-      # 価値関数を計算
-      V_new <- log(rowSums(exp(U + beta * cbind(trans_mat$not_buy %*% V_old,
-                                                trans_mat$buy %*% V_old)))) + Euler_const
-      # 価値関数の更新による差を評価
-      diff <- max(abs(V_new - V_old))
-      # 価値関数を次のループに渡す(価値関数の更新)
-      V_old <- V_new
-    }
-    # 得られた事前の価値関数を出力
-    return(V_old)
+  # 価値関数の初期値
+  num_states <- nrow(state_df)
+  V_old <- matrix(0, nrow = num_states, ncol = 1) # 126行1列の0行列を作成
+  
+  # パラメタより今期の効用を計算
+  U <- flow_utility(theta, state_df) # 126行2列の行列になる。行：状態、列：not_buyとbuyの選択肢ごとの効用
+  
+  # 価値関数の差の初期値
+  diff <- 1000
+  
+  # 縮小写像の誤差範囲
+  tol_level <- 1.0e-12
+  
+  while (diff > tol_level) {
+    # 価値関数を計算
+    # cbind()で、not_buyとbuyの選択肢ごとの価値関数を列方向に結合する。126行2列の行列になる。行：状態、列：not_buyとbuyの選択肢ごとの価値関数
+    # rowSums()で、行方向に合計する。126行1列の行列になる。行：状態、列：価値関数の合計
+    V_new <- log(rowSums(exp(U + beta * cbind(trans_mat$not_buy %*% V_old,
+                                              trans_mat$buy %*% V_old)))) + Euler_const
+    # 価値関数の更新による差を評価.abs():絶対値を取る関数
+    diff <- max(abs(V_new - V_old))
+    # 価値関数を次のループに渡す(価値関数の更新)
+    V_old <- V_new
   }
+  # 得られた事前の価値関数を出力
+  return(V_old)
+}
 
 
 
